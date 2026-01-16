@@ -46,18 +46,28 @@ export default async function handler(request, response) {
             const dataStr = await redis.get(userId);
             const data = dataStr ? JSON.parse(dataStr) : null;
 
-            return response.status(200).json(data || { completedLevels: [] });
+            // Return defaults if fields missing
+            return response.status(200).json({
+                completedLevels: data?.completedLevels || [],
+                stars: data?.stars || {} // Map of LevelID -> Stars (1-3)
+            });
         }
 
         if (request.method === 'POST') {
-            const { name, completedLevels } = request.body;
+            const { name, completedLevels, stars } = request.body;
 
             if (!name || !Array.isArray(completedLevels)) {
                 return response.status(400).json({ error: 'Invalid data' });
             }
 
             const userId = `user:${name.toLowerCase()}`;
-            await redis.set(userId, JSON.stringify({ completedLevels }));
+
+            // Fetch existing data to merge smart (keep highest stars)
+            // Actually frontend usually sends full state, but let's be safe if we want logic here.
+            // For simplicity, we trust the frontend sends the latest "best" state for now,
+            // or we just overwrite. Let's overwrite as it's simpler for this syncing model.
+
+            await redis.set(userId, JSON.stringify({ completedLevels, stars: stars || {} }));
 
             return response.status(200).json({ success: true });
         }

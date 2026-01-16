@@ -5,9 +5,10 @@ import { Level } from '../types';
 interface LevelSelectProps {
   onSelectLevel: (level: Level) => void;
   completedLevels: number[];
+  stars: Record<string, number>;
 }
 
-const LevelSelect: React.FC<LevelSelectProps> = ({ onSelectLevel, completedLevels }) => {
+const LevelSelect: React.FC<LevelSelectProps> = ({ onSelectLevel, completedLevels, stars }) => {
   return (
     <div className="min-h-screen bg-sky-100 p-8">
       <div className="max-w-5xl mx-auto">
@@ -21,7 +22,7 @@ const LevelSelect: React.FC<LevelSelectProps> = ({ onSelectLevel, completedLevel
             const isCompleted = completedLevels.includes(level.id);
             // Unlock level 1, level 7 (Proverbs), level 99 (AI), or if previous level is complete
             const isLocked = level.id !== 1 && level.id !== 7 && level.id !== 99 && !completedLevels.includes(level.id - 1) && !isCompleted;
-            
+
             return (
               <button
                 key={level.id}
@@ -34,23 +35,31 @@ const LevelSelect: React.FC<LevelSelectProps> = ({ onSelectLevel, completedLevel
                 `}
               >
                 <div className="flex items-start justify-between mb-4">
-                    <span className="text-4xl bg-white/20 p-3 rounded-full backdrop-blur-sm shadow-inner">
-                        {isLocked ? '🔒' : level.icon}
-                    </span>
-                    {isCompleted && <span className="text-2xl">✅</span>}
+                  <span className="text-4xl bg-white/20 p-3 rounded-full backdrop-blur-sm shadow-inner">
+                    {isLocked ? '🔒' : level.icon}
+                  </span>
+                  {isCompleted && (
+                    <div className="flex flex-col items-center">
+                      <span className="text-2xl" title="Completed">
+                        {stars[level.id] === 3 ? '⭐⭐⭐' :
+                          stars[level.id] === 2 ? '⭐⭐' :
+                            stars[level.id] === 1 ? '⭐' : '✅'}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                
+
                 <h3 className="text-2xl font-bold text-white mb-2 shadow-black drop-shadow-md">
-                    {level.title}
+                  {level.title}
                 </h3>
                 <p className="text-white/90 font-medium text-sm leading-relaxed">
-                    {level.description}
+                  {level.description}
                 </p>
-                
+
                 {level.isAI && (
-                    <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-bl-lg">
-                        AI MAAGIA
-                    </div>
+                  <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-bl-lg">
+                    AI MAAGIA
+                  </div>
                 )}
               </button>
             );

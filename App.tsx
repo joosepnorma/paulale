@@ -12,6 +12,7 @@ const App: React.FC = () => {
   const [screen, setScreen] = useState<'welcome' | 'menu' | 'playing' | 'results'>('welcome');
   const [currentLevel, setCurrentLevel] = useState<Level | null>(null);
   const [completedLevels, setCompletedLevels] = useState<number[]>([]);
+  const [stars, setStars] = useState<Record<string, number>>({});
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -43,6 +44,7 @@ const App: React.FC = () => {
 
       const data = await response.json();
       setCompletedLevels(data.completedLevels || []);
+      setStars(data.stars || {});
       setPlayerName(name);
       setScreen('menu');
     } catch (err) {
@@ -59,27 +61,40 @@ const App: React.FC = () => {
 
   const handleVisitor = () => {
     setPlayerName("Külaline");
-    setCompletedLevels([]); // Start fresh for visitor
+    setCompletedLevels([]);
+    setStars({});
     setScreen('menu');
   };
 
   const logout = () => {
     setPlayerName(null);
     setCompletedLevels([]);
+    setStars({});
     setScreen('welcome');
   };
 
-  const saveProgress = async (levels: number[]) => {
+  const saveProgress = async (levels: number[], newStars: Record<string, number>) => {
     if (!playerName || playerName === "Külaline") return;
 
+    setIsSaving(true);
+    setSaveError(false);
+
     try {
-      await fetch('/api/user', {
+      const res = await fetch('/api/user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: playerName, completedLevels: levels })
+        body: JSON.stringify({
+          name: playerName,
+          completedLevels: levels,
+          stars: newStars
+        })
       });
+      if (!res.ok) throw new Error("Save failed");
     } catch (e) {
       console.error("Failed to save progress", e);
+      setSaveError(true);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -94,7 +109,7 @@ const App: React.FC = () => {
     if (level.isAI) {
       // Use a loading sentence that acts as the first level task
       const loadingSentence = "Laen maagiat...";
-      // We add a temporary second sentence to ensure the game doesn't end 
+      // We add a temporary second sentence to ensure the game doesn't end
       // if the user finishes the first one before AI returns
       setSentences([loadingSentence, "Palun oota..."]);
 
@@ -111,14 +126,33 @@ const App: React.FC = () => {
 
   const handleLevelComplete = useCallback(() => {
     if (currentLevel) {
+      // Calculate stars
+      let earnedStars = 1;
+      if (errors === 0) earnedStars = 3;
+      else if (errors < 3) earnedStars = 2;
+
+      const currentBest = stars[currentLevel.id] || 0;
+
+      // Update if improved or new
+      let newStars = { ...stars };
+      if (earnedStars > currentBest) {
+        newStars[currentLevel.id] = earnedStars;
+        setStars(newStars);
+      }
+
+      let newLevels = completedLevels;
       if (!completedLevels.includes(currentLevel.id)) {
-        const newLevels = [...completedLevels, currentLevel.id];
+        newLevels = [...completedLevels, currentLevel.id];
         setCompletedLevels(newLevels);
-        saveProgress(newLevels); // Trigger save
+      }
+
+      // Save if anything changed
+      if (earnedStars > currentBest || !completedLevels.includes(currentLevel.id)) {
+        saveProgress(newLevels, newStars);
       }
     }
     setScreen('results');
-  }, [currentLevel, completedLevels, playerName]); // Added playerName dependency
+  }, [currentLevel, completedLevels, playerName, errors, stars]);
 
   const nextSentence = useCallback(() => {
     if (currentSentenceIdx < sentences.length - 1) {
@@ -239,6 +273,7 @@ const App: React.FC = () => {
         <LevelSelect
           onSelectLevel={startGame}
           completedLevels={completedLevels}
+          stars={stars}
         />
       </div>
     );
