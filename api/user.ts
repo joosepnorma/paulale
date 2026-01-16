@@ -1,7 +1,21 @@
-import { kv } from '@vercel/kv';
+import Redis from 'ioredis';
 
 export const config = {
     runtime: 'nodejs',
+};
+
+// Initialize Redis client outside of handler to reuse connection if possible
+let client;
+
+const getClient = () => {
+    if (!client) {
+        const connectionString = process.env.KV_REDIS_URL;
+        if (!connectionString) {
+            throw new Error("Missing KV_REDIS_URL environment variable");
+        }
+        client = new Redis(connectionString);
+    }
+    return client;
 };
 
 export default async function handler(request, response) {
@@ -20,6 +34,8 @@ export default async function handler(request, response) {
     }
 
     try {
+        const redis = getClient();
+
         if (request.method === 'GET') {
             const { name } = request.query;
             if (!name) {
@@ -27,7 +43,8 @@ export default async function handler(request, response) {
             }
 
             const userId = `user:${name.toLowerCase()}`;
-            const data = await kv.get(userId);
+            const dataStr = await redis.get(userId);
+            const data = dataStr ? JSON.parse(dataStr) : null;
 
             return response.status(200).json(data || { completedLevels: [] });
         }
@@ -40,7 +57,7 @@ export default async function handler(request, response) {
             }
 
             const userId = `user:${name.toLowerCase()}`;
-            await kv.set(userId, { completedLevels });
+            await redis.set(userId, JSON.stringify({ completedLevels }));
 
             return response.status(200).json({ success: true });
         }
@@ -48,7 +65,7 @@ export default async function handler(request, response) {
         return response.status(405).json({ error: 'Method not allowed' });
 
     } catch (error) {
-        console.error("KV Error:", error);
-        return response.status(500).json({ error: 'Database error' });
+        console.error("Redis Error:", error);
+        return response.status(500).json({ error: 'Database error', details: error.message });
     }
 }
