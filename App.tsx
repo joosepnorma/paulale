@@ -14,6 +14,8 @@ const App: React.FC = () => {
   const [completedLevels, setCompletedLevels] = useState<number[]>([]);
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // Game Logic State
@@ -221,7 +223,11 @@ const App: React.FC = () => {
       <div className="relative">
         <div className="absolute top-4 right-4 z-10">
           <div className="flex items-center gap-4 bg-white/80 p-2 rounded-xl backdrop-blur-sm">
-            <span className="font-bold text-sky-700">👤 {playerName}</span>
+            <div className="flex flex-col items-end mr-2">
+              <span className="font-bold text-sky-700">👤 {playerName}</span>
+              {isSaving && <span className="text-xs text-sky-500 animate-pulse">Salvestan...</span>}
+              {saveError && <span className="text-xs text-red-500">Salvestamine ebaõnnestus!</span>}
+            </div>
             <button
               onClick={logout}
               className="text-xs text-red-500 font-bold hover:underline"
